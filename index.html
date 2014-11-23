@@ -1,0 +1,229 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>MasterCard Calculator</title>
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            padding-bottom: 20px;
+            font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+            font-size: 14px;
+            line-height: 1.42857143;
+            color: #333;
+            background-color: #fff;
+        }
+        .step1 .spending {
+            width: 450px;
+            height: 200px;
+        }
+        .step2 {
+            display: none;
+        }
+        div.person1, div.person2 {
+            position: fixed;
+        }
+        .percent {
+            width: 200px !important;
+            display: inline-block !important;
+        }
+        tr.active {
+            font-weight: bold;
+        }
+        tr.person1 td, div.person1 {
+            background-color: #FF6 !important;
+        }
+        tr.person2 td, div.person2 {
+            background-color: purple !important;
+            color: #FFF !important;
+        }
+    </style>
+  </head>
+
+  <body>
+
+    <div class="container">
+
+      <div class="row step1">
+        <div class="col-md-6 col-md-offset-3">
+            <textarea class="spending"></textarea>
+        </div>
+      </div>
+
+      <div class="row step2">
+        <div class="col-md-2 person1">
+            <h2>-</h2>
+            <div>Total: <span class="total"></span></div>
+        </div>
+        <div class="col-md-offset-3 col-md-6">
+            <input type="text" class="person1" size=15><span class="percent-person1"></span>
+            <input type="range" class="percent" min="0" max="100">
+            <span class="percent-person2"></span><input type="text" class="person2" size=15>
+            <br>
+            <table class="table table-condensed data">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Montant</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-offset-8 col-md-2 person2">
+            <h2>-</h2>
+            <div>Total: <span class="total"></span></div>
+        </div>
+      </div>
+
+    </div> <!-- /container -->
+
+
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+    <script>
+        var dataRegex = /(\d{2}-\d{2})\s(.+)\s([0-9,.-]+) \$/i,
+            person1 = { spending: 0, total: 0 },
+            person2 = { spending: 0, total: 0 };
+        //Process the data on paste event
+        $('.spending').on('paste', processData);
+
+        //Init the percents
+        $('.percent').on('change', updatePercent).change();
+
+        //Keyboard navigation
+        $('body').on('keydown', navigate);
+
+        //mouse navigation
+        $('table.data').on('click', 'tr.line', function(){
+            activateRow($(this));
+        });
+
+        //update person names
+        $('input.person1, input.person2').on('keyup', function(){
+            var name = '-';
+            if ($(this).val().trim()) {
+                name = $(this).val().trim();
+            }
+
+            if ($(this).is('.person1')) {
+                $('div.person1 h2').html(name);
+            } else if ($(this).is('.person2')) {
+                $('div.person2 h2').html(name);
+            }
+        });
+
+        function navigate(e) {
+            var code = e.keyCode || e.which;
+            if (code == $.ui.keyCode.DOWN) {
+                if ($('tr.active').next('.line').length) {
+                    activateRow($('tr.active').next());
+                }
+                return false;
+            } else if (code == $.ui.keyCode.UP) {
+                if ($('tr.active').prev('.line').length) {
+                    activateRow($('tr.active').prev());
+                }
+                return false;
+            } else if (code == $.ui.keyCode.LEFT) {
+                $('tr.active').removeClass('danger person2').toggleClass('person1');
+                updateTotal();
+                return false;
+            } else if (code == $.ui.keyCode.RIGHT) {
+                $('tr.active').removeClass('danger person1').toggleClass('person2');
+                updateTotal();
+                return false;
+            } else if (code == $.ui.keyCode.DELETE) {
+                $('tr.active').removeClass('person1 person2').toggleClass('danger');
+                updateTotal();
+                return false;
+            }
+        };
+
+        function activateRow(row) {
+            var row = $(row),
+                w   = $(window);
+            $('tr.active').removeClass('active');
+            row.addClass('active');
+            w.scrollTop( row.offset().top - (w.height()/2) );
+        }
+
+        function processData(e) {
+            setTimeout(function(){
+                //Create a row for each pasted line
+                var lines   = $('.step1 .spending').val().split('\n'),
+                    data    = $('.data tbody');
+                for (var i in lines) {
+                    //Skip empty lines
+                    if (lines[i].trim() == '') { continue; }
+
+                    //Default value, if no matches are found
+                    date        = '-';
+                    description = lines[i];
+                    montant     = 0;
+
+                    matches     = dataRegex.exec(lines[i]);
+                    if (matches) {
+                        date        = matches[1];
+                        description = matches[2];
+                        montant     = parseFloat(matches[3].replace(',', '')).toFixed(2);
+                    }
+
+                    var tr = $('<tr>', {class: 'line'});
+                    $('<td>', {html: date}).appendTo(tr);
+                    $('<td>', {html: description}).appendTo(tr);
+                    $('<td>', {html: montant}).appendTo(tr);
+                    tr.appendTo(data);
+                }
+
+                //Add total row
+                $('<tr>', {class: 'total'}).append('<td>').append('<td>').append('<td>').appendTo(data);
+                updateTotal();
+                $('.data tbody tr:first').addClass('active');
+                $('.step1, .step2').toggle();
+            }, 0);
+        }
+
+        function updateTotal() {
+            var total = 0;
+            $('.data tbody tr.line:not(.danger, .person1, .person2)').each(function(){ total += parseFloat($(this).find('td:last').html()); });
+            total = parseFloat(total);
+            $('.data tbody tr.total td:last').html(total.toFixed(2));
+
+
+            //Update persons personnal spending
+            person1.spending = 0;
+            $('.data tbody tr.line.person1').each(function(){ person1.spending += parseFloat($(this).find('td:last').html()); });
+            person1.spending = person1.spending;
+            person2.spending = 0;
+            $('.data tbody tr.line.person2').each(function(){ person2.spending += parseFloat($(this).find('td:last').html()); });
+            person2.spending = person2.spending;
+
+            //Update persons total
+            var percent         = $('.percent').val();
+                person1.total   = parseFloat(total * percent / 100);
+                person2.total   = parseFloat(total * ((100 - percent) / 100));
+
+            $('div.person1 .total').html((parseFloat(person1.total) + parseFloat(person1.spending)).toFixed(2));
+            $('div.person2 .total').html((parseFloat(person2.total) + parseFloat(person2.spending)).toFixed(2));
+
+        }
+
+        function updatePercent() {
+            var percent = $('.percent').val();
+            $('.percent-person1').html(percent + '%');
+            $('.percent-person2').html((100-percent) + '%');
+
+            updateTotal();
+        }
+    </script>
+  </body>
+</html>
